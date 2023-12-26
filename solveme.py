@@ -155,7 +155,17 @@ class Tile(Label):
 
 #===================================================================================================================================================================================================================
 # Board class. The tiles are shown on a grid on the board. This is the parent class.
+class Node:
+    def __init__(self, state, parent=None, g=0, h=0):
+        self.state = state
+        self.parent = parent
+        self.g = g  # Cost from the start node to this node
+        self.h = h  # Heuristic cost from this node to the goal
+        self.f = g + h  # Total cost (f = g + h)
 
+    def __lt__(self, other):
+        return self.f < other.f
+    
 class Board(Frame):
     MAX_SIZE = 450
     def __init__(self, parent, image, grid, win, *args, **kwargs):
@@ -367,6 +377,8 @@ class Board(Frame):
             else:
                 print('Not solved')
 
+
+#A Star Solutions Solution
     def solveAStar(self):
         tic = time.perf_counter()
 
