@@ -164,8 +164,8 @@ class Board(Frame):
         self.parent = parent
         self.grid = grid
         self.win = win
-        Button(self, text = "Breadth first solver", command = lambda: self.solveBFS(),font= ("Times New Roman",12)).grid(row=4, column=0)
-        Button(self, text = "Import board state", command = lambda: self.openCSV(),font= ("Times New Roman",12)).grid(row=4, column=1)
+        Button(self, text="A* Algorithm", command=lambda: self.solveAStar(), font=("Times New Roman", 12)).grid(row=4, column=1)
+        Button(self, text = "Import board state", command = lambda: self.openCSV(),font= ("Times New Roman",12)).grid(row=4, column=0)
         Button(self, text = "Best first solver", command = lambda: self.solveBest(),font= ("Times New Roman",12)).grid(row=4, column=2)
         self.label = Label(self, text = "0 moves", font= ("Times New Roman",20))
         self.label.grid(row=5, column=1)
@@ -178,7 +178,7 @@ class Board(Frame):
 # Function to open a CSV file
     def openCSV(self):
         script_location = Path(__file__).absolute().parent
-        file_location = script_location / 'BoardState.csv'
+        file_location = script_location / 'Solusi.csv'
         with open(file_location, 'r') as csv_file:
             csv_reader = csv.reader(csv_file)
 
@@ -282,81 +282,6 @@ class Board(Frame):
 
         return validMoves,i
         
-       
-# BFS search
-    def solveBFS(self):
-        tic = time.perf_counter()
-        g = nx.Graph()
-
-        rootNode = self.toString(self.tiles.toList())
-        print(rootNode)
-        goalNode = '123456789'
-
-        g.add_node(rootNode)
-        parents = {}
-        parents[rootNode] = None
-        openNodes = Queue()
-        openNodes.put(rootNode)
-        closedNodes = []
-        goal = False
-
-        while goal is False:
-            if not openNodes.empty():
-                chosenNode = openNodes.get(block=False)
-                
-                if chosenNode == goalNode:
-                    goal = True
-                else:
-                    print(chosenNode)
-                    validMoves, i = self.possibleMoves(chosenNode)
-
-                    for j in range(0,len(validMoves)):
-                        temp = list(chosenNode)
-                        temp[i], temp[validMoves[j]] = temp[validMoves[j]], temp[i]
-                        tempStr = self.toString(temp)
-                        
-                        g.add_node(tempStr)
-                        g.add_edge(chosenNode, tempStr)
-                    pass
-                    
-                    children = g.neighbors(chosenNode)
-                    closedNodes.append(chosenNode)
-
-                    for child in children:
-                        if child not in closedNodes and child not in openNodes.queue:
-                            parents[child] = chosenNode
-                            openNodes.put(child)
-            else:
-                break
-            # If goal state is reached, backtrack from goalstate to root, else go on
-            if goal:
-                backtrackPath = []
-                currentNode = goalNode
-                backtrackPath.append(currentNode)
-                stateList = []
-                count = 0
-
-                while currentNode is not rootNode:
-                    currentNode = parents[currentNode]
-                    backtrackPath.append(currentNode)
-                print('\nPuzzle is solved!')
-                print('\nSteps to solve:')
-                for node in reversed(backtrackPath):
-                    if(node != rootNode):
-                        stateList.append(node)
-                        count += 1
-
-                toc = time.perf_counter()
-                msg = f'Do you want me to solve this puzzle? {count} moves from here. \nIt took {toc - tic:0.4f} seconds to solve!'
-                MsgBox = tkmb.askquestion ('Solution Found',msg,icon = 'question')
-                
-                if MsgBox == 'yes':
-                    self.solveIt(stateList)
-                else:
-                    print("Self solve")
-            else:
-                print('Not solved')
-
 
 # Calculate the cost of the edge for BEST FIRST
     def calcCost(self, theStr):
@@ -442,7 +367,71 @@ class Board(Frame):
             else:
                 print('Not solved')
 
+    def solveAStar(self):
+        tic = time.perf_counter()
 
+        # Create the initial node
+        initial_state = self.toString(self.tiles.toList())
+        initial_node = Node(initial_state, g=0, h=self.calculateHeuristic(initial_state))
+        open_nodes = PriorityQueue()
+        open_nodes.put(initial_node)
+        closed_nodes = set()
+
+        while not open_nodes.empty():
+            current_node = open_nodes.get()
+
+            if current_node.state == '123456789':
+                toc = time.perf_counter()
+                msg = f'Do you want me to solve this puzzle? {current_node.g} moves from here. \nIt took {toc - tic:0.4f} seconds to solve!'
+                MsgBox = tkmb.askquestion('Solution Found', msg, icon='question')
+                if MsgBox == 'yes':
+                    self.showSolvedPath(current_node)
+                return
+
+            closed_nodes.add(current_node.state)
+
+            valid_moves, i = self.possibleMoves(current_node.state)
+
+            for move in valid_moves:
+                child_state = self.swapTiles(current_node.state, i, move)
+                if child_state not in closed_nodes:
+                    child_node = Node(
+                        state=child_state,
+                        parent=current_node,
+                        g=current_node.g + 1,
+                        h=self.calculateHeuristic(child_state)
+                    )
+
+                    open_nodes.put(child_node)
+                    closed_nodes.add(child_state)
+
+    def calculateHeuristic(self, state):
+        # Implement your heuristic function here
+        # Example: Hamming distance (number of misplaced tiles)
+        goal_state = '123456789'
+        return sum(1 for a, b in zip(state, goal_state) if a != b)
+
+    def swapTiles(self, state, i, j):
+        # Helper function to swap tiles in a given state
+        state_list = list(state)
+        state_list[i], state_list[j] = state_list[j], state_list[i]
+        return ''.join(state_list)
+
+    def showSolvedPath(self, final_node):
+        # Display the solved path on the GUI
+        path = []
+        current_node = final_node
+        while current_node is not None:
+            path.append(current_node.state)
+            current_node = current_node.parent
+
+        for state in reversed(path):
+            self.tiles.importState(list(state))
+            self.tiles.show()
+            movess = "{0} moves".format(self.tiles.moves)
+            self.label.config(text=movess)
+            time.sleep(1)
+            root.update()
 #===================================================================================================================================================================================================================
 # Main class. This is the main menu where you choose the image and start the game.
 
