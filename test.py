@@ -1,14 +1,9 @@
-######################################################################
-###### NPuzzle GUI and solver ########################################
-###### Gregory Ollivierre  <--> ollivierre.gregory@outlook.com  ######
-###### Saturday, 30th May, 2020   ~ 22:00 EST   ######################
-######################################################################
-
 import time
 from queue import PriorityQueue
 from math import inf
 from tkinter import *
 import random
+from PIL import Image, ImageTk
 
 '''Method to assess if a given board layout is solvable or not'''
 def isSolvable(seq):

@@ -175,8 +175,9 @@ class Board(Frame):
         self.grid = grid
         self.win = win
         Button(self, text="A* Algorithm", command=lambda: self.solveAStar(), font=("Times New Roman", 12)).grid(row=4, column=1)
-        Button(self, text = "Import board state", command = lambda: self.openCSV(),font= ("Times New Roman",12)).grid(row=4, column=0)
+        # Button(self, text = "Import board state", command = lambda: self.openCSV(),font= ("Times New Roman",12)).grid(row=4, column=0)
         Button(self, text = "Best first solver", command = lambda: self.solveBest(),font= ("Times New Roman",12)).grid(row=4, column=2)
+        Button(self, text = "Random Tiles", command = lambda: self.shuffleMe(),font= ("Times New Roman",12)).grid(row=4, column=0)
         self.label = Label(self, text = "0 moves", font= ("Times New Roman",20))
         self.label.grid(row=5, column=1)
         self.image = self.openImage(image)
@@ -184,7 +185,11 @@ class Board(Frame):
         self.tiles = self.createTiles()
         self.tiles.shuffle()
         self.tiles.show()
-
+    
+    def shuffleMe(self):
+        self.tiles.shuffle()
+        self.tiles.show()
+        
 # Function to open a CSV file
     def openCSV(self):
         script_location = Path(__file__).absolute().parent

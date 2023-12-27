@@ -6,13 +6,9 @@ import random
 import os
 import csv
 from pathlib import Path
-from queue import PriorityQueue
+from queue import Queue, PriorityQueue
 import networkx as nx
 import time
-
-# ===================================================================================================================================================================================================================
-# This is the Tiles class. It is responsible for storing the tiles in a list, and most manipulations that happen, happen here.
-
 
 class Tiles(Label):
     def __init__(self, grid):
@@ -37,12 +33,7 @@ class Tiles(Label):
 
     def getTileAroundGap(self):
         gRow, gCol = self.gap.pos
-        return (
-            self.getTile((gRow, gCol - 1)),
-            self.getTile((gRow - 1, gCol)),
-            self.getTile((gRow, gCol + 1)),
-            self.getTile((gRow + 1, gCol)),
-        )
+        return self.getTile((gRow, gCol - 1)), self.getTile((gRow - 1, gCol)), self.getTile((gRow, gCol + 1)), self.getTile((gRow + 1, gCol))
 
     def changeGap(self, tile):
         gPos = self.gap.pos
@@ -115,11 +106,6 @@ class Tiles(Label):
         inversionCount = self.getInvCount(arr)
         return (inversionCount % 2 == 0)
 
-
-# ====================================================================================================================================================================================================================
-# This is the Tile class. It is responsible to show the picture on the puzzle. The picture is divided into 9 Tiles.
-
-
 class Tile(Label):
     def __init__(self, parent, image, pos, listNum):
         Label.__init__(self, parent, image=image)
@@ -139,23 +125,6 @@ class Tile(Label):
     def isCorrectPos(self):
         return self.pos == self.ogPos
 
-
-# ===================================================================================================================================================================================================================
-# Board class. The tiles are shown on a grid on the board. This is the parent class.
-
-
-class Node:
-    def __init__(self, state, parent=None, g=0, h=0):
-        self.state = state
-        self.parent = parent
-        self.g = g
-        self.h = h
-        self.f = g + h
-
-    def __lt__(self, other):
-        return self.f < other.f
-
-
 class Board(Frame):
     MAX_SIZE = 450
 
@@ -165,43 +134,27 @@ class Board(Frame):
         self.parent = parent
         self.grid = grid
         self.win = win
-
-        Button(
-            self,
-            text="A* Algorithm",
-            command=lambda: self.solveAStar(),
-            font=("Times New Roman", 12),
-        ).grid(row=6, column=1)
-
-        self.label = Label(
-            self, text="0 moves", font=("Times New Roman", 20)
-        )
-        self.label.grid(row=7, column=1)
+        Button(self, text="A* Algorithm", command=lambda: self.solveAStar(), font=("Times New Roman", 12)).grid(row=grid + 1, column=0)
+        Button(self, text="Shuffle Puzzle", command=lambda: self.shufflePuzzle(), font=("Times New Roman", 12)).grid(row=grid + 1, column=1)
+        self.label = Label(self, text="0 moves", font=("Times New Roman", 20))
+        self.label.grid(row=grid + 2, column=0, columnspan=grid)
         self.image = self.openImage(image)
         self.tileSize = self.image.size[0] / self.grid
         self.tiles = self.createTiles()
         self.tiles.shuffle()
         self.tiles.show()
 
-    def openCSV(self):
-        script_location = Path(__file__).absolute().parent
-        file_location = script_location / 'Solusi.csv'
-        with open(file_location, 'r') as csv_file:
-            csv_reader = csv.reader(csv_file)
-            next(csv_reader)
-            for line in csv_reader:
-                stateList = line
-
-            self.tiles.importState(stateList)
-            self.tiles.show()
-            movess = "{0} moves".format(self.tiles.moves)
-            self.label.config(text=movess)
+    def shufflePuzzle(self):
+        self.tiles.shuffle()
+        self.tiles.show()
+        movess = "{0} moves".format(self.tiles.moves)
+        self.label.config(text=movess)
 
     def openImage(self, image):
         image = Image.open(image)
-        if (image.size[0] > 450 or image.size[1] > 450):
-            image = image.resize(
-                (self.MAX_SIZE, self.MAX_SIZE), Image.Resampling.LANCZOS)
+
+        if (image.size[0] > self.MAX_SIZE or image.size[1] > self.MAX_SIZE):
+            image = image.resize((self.MAX_SIZE, self.MAX_SIZE), Image.Resampling.LANCZOS)
 
         if image.size[0] != image.size[1]:
             image = image.crop((0, 0, image.size[0], image.size[0]))
@@ -223,9 +176,8 @@ class Board(Frame):
                 y0 = row * self.tileSize
                 x1 = x0 + self.tileSize
                 y1 = y0 + self.tileSize
-                tileImage = ImageTk.PhotoImage(
-                    self.image.crop((x0, y0, x1, y1)))
-                if col == 2 and row == 2:
+                tileImage = ImageTk.PhotoImage(self.image.crop((x0, y0, x1, y1)))
+                if col == self.grid // 2 and row == self.grid // 2:
                     tile = Tile(self, None, (row, col), i)
                     tiles.add(tile)
                     tiles.setGap(-1)
@@ -258,55 +210,105 @@ class Board(Frame):
 
     def possibleMoves(self, chosenNode):
         validMoves = []
-        i = chosenNode.index('0')  # The '0' represents the gap in the puzzle
-
-        row, col = divmod(i, self.grid)
+        i = chosenNode.index(str(self.grid * self.grid))
+        row, col = i // self.grid, i % self.grid
 
         if row > 0:
-            validMoves.append(i - self.grid)  # Move up
-
+            validMoves.append(i - self.grid)
         if row < self.grid - 1:
-            validMoves.append(i + self.grid)  # Move down
-
+            validMoves.append(i + self.grid)
         if col > 0:
-            validMoves.append(i - 1)  # Move left
-
+            validMoves.append(i - 1)
         if col < self.grid - 1:
-            validMoves.append(i + 1)  # Move right
+            validMoves.append(i + 1)
 
         return validMoves, i
 
-
     def calcCost(self, theStr):
         cost = 0
-        goalNode = '123456789101112131415'
-
-        for a, b in zip(theStr, goalNode):
-            if a != b:
+        goalNode = self.toString(range(1, self.grid * self.grid)) + str(self.grid * self.grid)
+        for nom in range(0, len(theStr)):
+            if theStr[nom] != goalNode[nom]:
                 cost += 1
-
         return cost
 
-    def getNode(self, current_node):
-        validMoves, i = self.possibleMoves(current_node.state)
-        neighbors = []
+    def solveBest(self):
+        tic = time.perf_counter()
+        g = nx.Graph()
 
-        for move in validMoves:
-            new_state = self.swapTiles(
-                current_node.state, i, move)
-            new_node = Node(
-                new_state, parent=current_node, g=current_node.g + 1, h=self.calculateHeuristic(new_state))
-            neighbors.append(new_node)
+        rootNode = self.toString(self.tiles.toList())
+        goalNode = self.toString(range(1, self.grid * self.grid)) + str(self.grid * self.grid)
+        rootCost = self.calcCost(rootNode)
 
-        return neighbors
+        g.add_node(rootNode)
+        parents = {}
+        parents[rootNode] = None
+        openNodes = PriorityQueue()
+        openNodes.put((rootCost, rootNode))
+        closedNodes = []
+        goal = False
 
+        while goal is False:
+            if not openNodes.empty():
+                cost, chosenNode = openNodes.get()
+                if chosenNode == goalNode:
+                    goal = True
+                else:
+                    validMoves, i = self.possibleMoves(chosenNode)
+
+                    for j in range(0, len(validMoves)):
+                        temp = list(chosenNode)
+                        temp[i], temp[validMoves[j]] = temp[validMoves[j]], temp[i]
+                        tempStr = self.toString(temp)
+
+                        g.add_node(tempStr)
+                        g.add_edge(chosenNode, tempStr, length=self.calcCost(tempStr))
+
+                    children = g.neighbors(chosenNode)
+                    closedNodes.append(chosenNode)
+
+                    for child in children:
+                        if child not in closedNodes and child not in openNodes.queue:
+                            cost = self.calcCost(child)
+                            parents[child] = chosenNode
+                            openNodes.put((cost, child))
+            else:
+                break
+
+        if goal:
+            backtrackPath = []
+            currentNode = goalNode
+            backtrackPath.append(currentNode)
+            stateList = []
+            count = 0
+
+            while currentNode is not rootNode:
+                currentNode = parents[currentNode]
+                backtrackPath.append(currentNode)
+
+            print('\nPuzzle is solved!')
+            print('\nSteps to solve:')
+            for node in reversed(backtrackPath):
+                if node != rootNode:
+                    stateList.append(node)
+                    count += 1
+
+            toc = time.perf_counter()
+            msg = f'Do you want me to solve this puzzle? {count} moves from here. \nIt took {toc - tic:0.4f} seconds to solve!'
+            MsgBox = tkmb.askquestion('Solution Found', msg, icon='question')
+            if MsgBox == 'yes':
+                self.solveIt(stateList)
+            else:
+                print("Self solve")
+        else:
+            print('Not solved')
 
     def solveAStar(self):
         tic = time.perf_counter()
 
+        # Create the initial node
         initial_state = self.toString(self.tiles.toList())
-        initial_node = Node(initial_state, g=0,
-                            h=self.calculateHeuristic(initial_state))
+        initial_node = Node(initial_state, g=0, h=self.calculateHeuristic(initial_state))
         open_nodes = PriorityQueue()
         open_nodes.put(initial_node)
         closed_nodes = set()
@@ -314,74 +316,52 @@ class Board(Frame):
         while not open_nodes.empty():
             current_node = open_nodes.get()
 
-            if current_node.state == '123456789101112131415':
+            if current_node.state == self.toString(range(1, self.grid * self.grid)) + str(self.grid * self.grid):
                 toc = time.perf_counter()
                 msg = f'Do you want me to solve this puzzle? {current_node.g} moves from here. \nIt took {toc - tic:0.4f} seconds to solve!'
-                MsgBox = tkmb.askquestion(
-                    'Solution Found', msg, icon='question')
+                MsgBox = tkmb.askquestion('Solution Found', msg, icon='question')
                 if MsgBox == 'yes':
                     self.showSolvedPath(current_node)
                 return
 
             closed_nodes.add(current_node.state)
 
-            neighbor_nodes = self.getNode(current_node)
+            valid_moves, i = self.possibleMoves(current_node.state)
 
-            for neighbor_node in neighbor_nodes:
-                if neighbor_node.state not in closed_nodes:
-                    open_nodes.put(neighbor_node)
-                    closed_nodes.add(neighbor_node.state)
+            for move in valid_moves:
+                child_state = self.swapTiles(current_node.state, i, move)
+                if child_state not in closed_nodes:
+                    child_node = Node(
+                        state=child_state,
+                        parent=current_node,
+                        g=current_node.g + 1,
+                        h=self.calculateHeuristic(child_state)
+                    )
 
-            print(f'Moves: {current_node.g}, State: {current_node.state}')
-            self.tiles.importState(list(current_node.state))
-            self.tiles.show()
-            movess = "{0} moves".format(current_node.g)
-            self.label.config(text=movess)
-            root.update_idletasks()
-            time.sleep(1)
+                    open_nodes.put(child_node)
+                    closed_nodes.add(child_state)
 
     def calculateHeuristic(self, state):
-        goal_state = ''.join(str(i) for i in range(self.grid * self.grid))
-        size = int(self.grid)
+        # Implement your heuristic function here
+        # Example: Manhattan distance
+        goal_state = self.toString(range(1, self.grid * self.grid)) + str(self.grid * self.grid)
+        distance = 0
+        for digit in state:
+            if digit != '0':
+                goal_row, goal_col = self.get_indices(goal_state, digit)
+                current_row, current_col = self.get_indices(state, digit)
+                distance += abs(goal_row - current_row) + abs(goal_col - current_col)
+        return distance
 
-        h = 0
-        for i in range(size * size):
-            value_to_find = str(i)
-            if value_to_find in state:
-                current_row, current_col = divmod(
-                    state.index(value_to_find), size)
-                goal_row, goal_col = divmod(
-                    goal_state.index(value_to_find), size)
-                h += abs(current_row - goal_row) + abs(current_col - goal_col)
-
-        return h
+    def get_indices(self, state, digit):
+        index = state.index(digit)
+        row, col = index // self.grid, index % self.grid
+        return row, col
 
     def swapTiles(self, state, i, j):
-        value_i = str(i + 1)
-        value_j = str(j + 1)
-
-        if value_i not in state or value_j not in state:
-            return state
-
         state_list = list(state)
-        index_i = state_list.index(value_i)
-        index_j = state_list.index(value_j)
-
-        state_list[index_i], state_list[index_j] = state_list[index_j], state_list[index_i]
+        state_list[i], state_list[j] = state_list[j], state_list[i]
         return ''.join(state_list)
-    # def swapTiles(self, state, i, j):
-    #     value_i = str(i + 1)
-    #     value_j = str(j + 1)
-
-    #     if value_i not in state or value_j not in state:
-    #         return state
-
-    #     state_list = list(state)
-    #     index_i = state_list.index(value_i)
-    #     index_j = state_list.index(value_j)
-
-    #     state_list[index_i], state_list[index_j] = state_list[index_j], state_list[index_i]
-    #     return ''.join(state_list)
 
     def showSolvedPath(self, final_node):
         path = []
@@ -396,64 +376,56 @@ class Board(Frame):
             movess = "{0} moves".format(self.tiles.moves)
             self.label.config(text=movess)
             time.sleep(1)
-            root.update_idletasks()
-
+            root.update()
 
 class Main():
-    def __init__(self, parent):
+    def __init__(self,parent):
         self.parent = parent
         self.image = StringVar()
         self.winText = StringVar()
         self.createWidgets()
 
+# Creates the widgets for the starting page, win page and board page
     def createWidgets(self):
         self.mainFrame = Frame(self.parent)
-        Label(self.mainFrame, text='AI Puzzle Tile', font=(
-            "Montserrat-Regular", 40)).pack(padx=10, pady=10)
+        Label(self.mainFrame, text = 'AI Puzzle Tile', font= ("Montserrat-Regular",40)).pack(padx = 10, pady = 10)
         frame = Frame(self.mainFrame)
 
-        Label(frame, text='Image').grid(sticky=W)
-        Entry(frame, textvariable=self.image).grid(
-            row=0, column=1, padx=30, pady=30)
-        Button(frame, text="Browse", command=self.browse).grid(
-            row=0, column=2, padx=30, pady=30)
+        Label(frame, text = 'Image').grid(sticky = W)
+        Entry(frame,textvariable = self.image).grid(row=0, column=1, padx = 30, pady = 30)
+        Button(frame, text = "Browse", command = self.browse).grid(row=0, column=2, padx = 30, pady = 30)
 
-        frame.pack(padx=30, pady=30)
-        Button(self.mainFrame, text="Start", command=self.start,
-               font=("Arial", 15, "bold")).pack(padx=30, pady=30)
+        frame.pack(padx = 30, pady = 30)
+        Button(self.mainFrame, text = "Start", command = self.start,font= ("Arial",15,"bold")).pack(padx = 30, pady = 30)
         self.mainFrame.pack()
         self.board = Frame(self.parent)
         self.winFrame = Frame(self.parent)
-        Label(self.winFrame, textvariable=self.winText,
-              font=('', 50)).pack(padx=30, pady=30)
-        Button(self.winFrame, text="Play again",
-               command=self.playAgain).pack(padx=30, pady=30)
+        Label(self.winFrame, textvariable = self.winText,font = ('',50)).pack(padx = 30, pady = 30)
+        Button(self.winFrame, text = "Play again", command = self.playAgain).pack(padx = 30, pady = 30)
 
-    # Start button function, close main and open Board
+# Start button function, close main and open Board
     def start(self):
         image = self.image.get()
         if os.path.exists(image):
-            self.board = Board(self.parent, image, 4, self.win)
+            self.board = Board(self.parent,image,4,self.win)
             self.mainFrame.pack_forget()
             self.board.pack()
 
-    # File dialog for image to use on puzzle
+# File dialog for image to use on puzzle
     def browse(self):
-        self.image.set(filedialog.askopenfilename(
-            title="Select Image", filetype=(("JPG File", "*.jpg"), ("PNG File", "*.png"))))
+        self.image.set(filedialog.askopenfilename(title = "Select Image", filetype = (("JPG File","*.jpg"),("PNG File","*.png"))))
 
-    # Win state page
-    def win(self, moves):
+# Win state page
+    def win(self,moves):
         self.board.pack_forget()
         self.winText.set("You WON! You made {0} moves".format(moves))
         self.winFrame.pack()
 
-    # Play again button's method
+# Play again button's method
     def playAgain(self):
         self.winFrame.pack_forget()
         self.mainFrame.pack()
-
-
+        
 # Set the app root to main page
 if __name__ == "__main__":
     root = Tk()
