@@ -1,5 +1,4 @@
 import time
-import tkinter as tk
 from queue import PriorityQueue
 from math import inf
 from tkinter import *
@@ -7,8 +6,9 @@ import random
 from PIL import Image, ImageTk
 import pygame
 
+'''Method to assess if a given board layout is solvable or not'''
 def isSolvable(seq):
-
+        # function to count the number of inversions
         seq = list(seq) 
         N = int(len(seq) ** 0.5)
         def countInv(seq):
@@ -18,21 +18,24 @@ def isSolvable(seq):
                     if seq[i] != N**2 and seq[j] != N**2 and seq[i] > seq[j]:
                         numinv += 1
             return numinv
-
+        #function to find row of the blank tile (counting from bottom)
         def blankRow(seq):
             return N - ((seq.index(N**2)) // N)
 
         numinv = countInv(seq)
-
+        # If grid is odd, return true if inversion 
+        # count is even. 
         if N & 1:
             return bool(not numinv & 1)
-        else:
+        else: # grid is even 
             pos = blankRow(seq)
             if pos & 1:
                 return bool(not numinv & 1)
             else:
                 return bool(numinv & 1)
 
+####################  DISTANCE HEURISTICS  ################################################
+'''Method to implement manhattan distance metric'''
 def manhattan(seq):
     result = 0
     dim = int(len(seq)**0.5)
@@ -49,6 +52,7 @@ def manhattan(seq):
                         break
     return result
 
+'''Methods to implement walking distance metric --- > https://rosettacode.org/wiki/15_puzzle_solver'''
 def encode_cfg(cfg, n):
     r = 0
     b = n.bit_length()
@@ -91,8 +95,8 @@ def slide_wd(n, goal):
         return tuple(tmp)
     def h(p):
         p = replace_with_0(p)
-        ht = 0
-        vt = 0
+        ht = 0 # Walking distance between rows.
+        vt = 0 # Walking distance between columns.
         d = 0
         for i, c in enumerate(p):
             if c == 0: continue
@@ -116,7 +120,8 @@ def slide_wd(n, goal):
  
         return d
     return h
-
+####################  DISTANCE HEURISTICS  ################################################
+'''Method to take long format grid representation (1D array) and convert to matrix representation (2D array)'''
 def to2D(seq):
     N = int(len(seq)**0.5)
     tmp = []
@@ -124,6 +129,7 @@ def to2D(seq):
         tmp.append(seq[N*i:N*(i+1)])
     return tmp
 
+'''Method that outputs next posible moves (Up, Down, Left, Right) from a given position.''' 
 def posibleMoves(seq):
     seq = list(seq)
     Nsq = len(seq)
@@ -179,6 +185,7 @@ def posibleMoves(seq):
         moves.add(tuple(right()))
     return list(moves)
 
+'''Method that take final node object of solution and works backward towards parents to find complete solution path'''
 def getPath(node):
     path = []
     path.append(node.board)
@@ -187,6 +194,7 @@ def getPath(node):
         path.append(node.board)
     return path[::-1]
 
+'''Method outputs solution path as u,d,l,r which is shorthand for (Up, Down, Left, Right)'''
 def path_as_udlr(solution):
     Nsq = len(solution[0])
     n = int(Nsq ** 0.5)
@@ -217,6 +225,7 @@ def path_as_udlr(solution):
             continue
     return move_path
 
+'''Method initializes a game solver given a heuristic and starting board. Returns the start and end node objects plus heuristic function'''
 def game_init(heuristic_name,stboard):
     n = int(len(stboard)**0.5)
     goal_board = tuple(i % (n*n) for i in range(1, n*n+1))
@@ -232,6 +241,7 @@ def game_init(heuristic_name,stboard):
     goal = Node(end_board,None,0,0,0)
     return start,goal,heuristic
 
+'''Implements A* search algorithm'''
 def AStarSearch(heuristic_name,board):
     start,goal,heuristic = game_init(heuristic_name,board)
     openset = PriorityQueue()
@@ -302,6 +312,7 @@ def AStarSearchWithGUI(board_size, solving_algorithm, heuristic_name, gui_board)
             break
     return [], 0
 
+'''Implements Iterative Deepening A* (IDA*) search algorithm'''
 def IDAStar(heuristic_name,board):
     
     def search(path, is_in_path, g, threshold, num_positions_evaluated):
@@ -343,6 +354,7 @@ def IDAStar(heuristic_name,board):
         else:
             threshold = t
 
+'''Wrapper function for finding search solution'''
 def Solve(heuristic_name_short,algorithm_name, board):
     if not isSolvable(board):
         print("Bad board. not solvable")
@@ -361,23 +373,26 @@ def Solve(heuristic_name_short,algorithm_name, board):
         return -1
     after = time.perf_counter()
     moves_to_solve = list(path_as_udlr(soln))
-
     return (board,len(soln)-1,str(round(after - before,3)),numpos,heuristic_name,algorithm_name,moves_to_solve,soln)
 
+'''Class to abstract the connection to board layout and moves'''
 class Node:
     def __init__(self,board,parent,g,h,f):
         self.board = tuple(board)
         self.parent = parent
-        self.g = g
-        self.h = h
-        self.f = f
+        self.g = g # moves so far
+        self.h = h # estimate of distance to goal
+        self.f = f # cost of current node ( g + h)
 
     def __lt__(self,other):
+        ''' Defines how a node is less than another '''
         return self.f < other.f
 
     def __eq__(self,other):
+        ''' Defines how two nodes are equal '''
         return self.board == other.board
 
+'''Class to implement Game Window GUI container and variables'''
 class Game(Tk):
     def __init__(self, *args, **kwargs):
         Tk.__init__(self, *args, **kwargs)
@@ -403,6 +418,7 @@ class Game(Tk):
 
     def show_frame(self,frame_name):
         if frame_name == "Board":
+            # self.frames["StartPage"].grid_forget()
             self.frames["Board"].grid()
         elif frame_name == "StartPage":
             if "Board" in self.frames:
@@ -411,6 +427,7 @@ class Game(Tk):
         else:
             pass
 
+'''Implements first page of the GUI so user can select options'''
 class StartPage(Frame):
     def __init__(self, parent, controller):
         Frame.__init__(self, parent)
@@ -418,17 +435,19 @@ class StartPage(Frame):
         self.controller = controller
         self.create_vars()
         self.create_layout()
+        # self.grid(row=0,column=0)
 
     def create_vars(self):
         self.var1 = StringVar()
-        self.var1.set("3x3")
+        self.var1.set("3x3") # initial value
         self.var2 = StringVar()
-        self.var2.set("A*")
+        self.var2.set("A*") # initial value
         self.var3 = StringVar()
         self.var3.set("WD")
 
     def create_layout(self):
         inner_frame = Frame(self.parent_frame)
+        # inner_frame.grid()
         inner_frame.grid_columnconfigure(0,weight=1)
         inner_frame.grid_columnconfigure(1,weight=1)
         for row in range(9):
@@ -458,6 +477,7 @@ class StartPage(Frame):
         _b = Board(self.parent_frame,self.controller,board_size,algo,heuristic)
         self.controller.show_frame("Board")
 
+'''Abstraction of Board logic and implements main game GUI'''
 class Board(Frame):
     def __init__(self, parent, controller, board_size="4x4",solving_algorithm="A*",heuristic_name="WD"):
         Frame.__init__(self,parent)
@@ -472,6 +492,7 @@ class Board(Frame):
         self.solution = ""
         self.solving_algo = solving_algorithm
         self.heuristic_name = heuristic_name
+        # self.grid(row=0,column=0,sticky=NSEW)
         self.blank = self.find_blank()
         self.create_content()
         self.controller.bind("<Key>",self.move)
@@ -506,8 +527,11 @@ class Board(Frame):
         but_to_swap = self.frame1.grid_slaves(row=new_blank_row, column=new_blank_col)[0]
         but_blank = self.frame1.grid_slaves(row=blank_row, column=blank_col)[0]
 
+        # Swap text
         but_to_swap['text'], but_blank['text'] = but_blank['text'], but_to_swap['text']
+        # Swap background image
         but_to_swap['image'], but_blank['image'] = but_blank['image'], but_to_swap['image']
+
         but_to_swap['bg'], but_blank['bg'] = "red", "grey"
 
         new_idx = new_blank_row * self.N + new_blank_col
@@ -541,25 +565,30 @@ class Board(Frame):
         N = int(len(seq) ** 0.5)
         
         def countInv(seq):
+            # function to count the number of inversions
             numinv = 0
             for i in range(0,N**2,1):
                 for j in range(i+1,N**2,1):
                     if seq[i] != N**2 and seq[j] != N**2 and seq[i] > seq[j]:
                         numinv += 1
             return numinv
-
+        
         def blankRow(seq):
+            #function to find row of the blank tile (counting from bottom)
             return N - ((seq.index(N**2)) // N + 1)
         def isEven(num):
+            # returns if number is even
             return num % 2 == 0
         def isOdd(num):
+            # returns if number is odd
             return num % 2 == 1
 
         numinv = countInv(seq)
-
+        # If grid is odd, return true if inversion 
+        # count is even. 
         if isOdd(N):
             return isEven(numinv)
-        else:
+        else: # grid is even 
             pos = blankRow(seq)
             if isEven(pos):
                 return isEven(numinv)
@@ -588,6 +617,7 @@ class Board(Frame):
         sym = event.keysym
         if sym not in ["Atas","Bawah","Kiri","Kanan"]:
             print("Please press one of the arrow Keys\n")
+            # self.txt_widget.insert(INSERT,"Please press one of the arrow Keys\n")
         else:
             if sym == "Atas" and blank_row > 0:
                 self.swap("Atas",-1,0)
@@ -599,17 +629,9 @@ class Board(Frame):
                 self.swap("Kanan",0,1)
 
     def move_solution(self):
-        self.controller.buttons["shuffle"].config(state=DISABLED,bg="Grey")
-        stboard,num_moves,time4soln,positions_look,hname,algo,moves2solve,soln = Solve(self.heuristic_name,self.solving_algo,self.board)
-        
-        if len(soln) == 0:
-            print("puzzle was not solved")
-        else:
-            self.solution = moves2solve
-
         def callback():
             if len(self.solution) == 0:
-                # self.controller.buttons["Solve"].config(state=NORMAL,bg="yellow")
+                self.controller.buttons["Solve"].config(state=NORMAL,bg="yellow")
                 self.controller.buttons["Solution"].config(state=DISABLED,bg="Grey")
                 self.controller.buttons["shuffle"].config(state=NORMAL,bg="yellow")
                 return
@@ -632,12 +654,14 @@ class Board(Frame):
         new_blank_col = blank_col + dcol
         but_to_swap = self.frame1.grid_slaves(row=new_blank_row,column=new_blank_col)[0]
         but_blank = self.frame1.grid_slaves(row=blank_row,column=blank_col)[0]
-
+        
+        # Update the images associated with the buttons
         tmp_to_swap = but_to_swap.image
         tmp_blank = but_blank.image
         but_to_swap.image = tmp_blank
         but_blank.image = tmp_to_swap
-
+        
+        # Perform the button swap
         but_to_swap.grid(row=blank_row, column=blank_col)
         but_blank.grid(row=new_blank_row, column=new_blank_col)
 
@@ -645,7 +669,8 @@ class Board(Frame):
         old_idx = blank_row * self.N + blank_col
         self.board[new_idx], self.board[old_idx] = self.board[old_idx], self.board[new_idx]
         self.blank = (new_blank_row, new_blank_col)
-
+        
+        # ubah pergerakan
         intvartmp = self.controller.var.get() + 1
         self.controller.var.set(intvartmp)
 
@@ -666,6 +691,7 @@ class Board(Frame):
                     self.swap("Atas",-1,0)
         else:
             print("Click a neighbour\n")
+            # self.txt_widget.insert(INSERT,"Click a neighbour\n")
 
     def create_tiles(self):
         for i in range(self.N):
@@ -674,17 +700,28 @@ class Board(Frame):
                 tmp = self.board[idx]
                 if tmp == self.Nsq:
                     tmp = "  "
-                    tmp_image = Image.open("blank_tile.png")
+                    tmp_image = Image.open("blank_tile.png")  # Replace with the path to your tile images
+                    # Resize gambar sesuai ukuran button
                     tmp_image = tmp_image.resize((100, 100), Image.Resampling.LANCZOS)
+
+                    # convert gambar ke PhotoImage
                     tile_image = ImageTk.PhotoImage(tmp_image)
+
+                    # membuat button dari gambar
                     but = Button(self.frame1, image=tile_image, command=lambda idx=idx: self.click(idx))
-                    but.image = tile_image
+                    but.image = tile_image  # Keep a reference to the image to prevent it from being garbage collected
                 else:
-                    tmp_image = Image.open(f"tile_{tmp}.png")
+                    tmp_image = Image.open(f"tile_{tmp}.png")  # Replace with the path to your tile images
+                    
+                    # Resize gambar sesuai ukuran button
                     tmp_image = tmp_image.resize((100, 100), Image.Resampling.LANCZOS)
+
+                    # convert gambar ke PhotoImage
                     tile_image = ImageTk.PhotoImage(tmp_image)
+
+                    # membuat button dari gambar
                     but = Button(self.frame1, image=tile_image, command=lambda idx=idx: self.click(idx))
-                    but.image = tile_image
+                    but.image = tile_image  # Keep a reference to the image to prevent it from being garbage collected
 
                 but.grid(row=i,column=j)
                 but.bind('<Button-1>',self.click)
@@ -694,61 +731,54 @@ class Board(Frame):
         frame0 = Frame(inner_frame)
         self.frame1 = Frame(inner_frame)
         frame2 = Frame(inner_frame)
-
+        
+        # make the NxN board
         self.create_tiles()
-
+        
+        # make game play buttons
         but_shuf = Button(frame2, text="Acak", bg="yellow", justify="center", font=("Arial Bold", 10),command=self.shuffle)
         but_shuf.pack(padx=1,side=LEFT)
         self.controller.buttons["shuffle"] = but_shuf
-
-        but_realimage = Button(frame2, text="Show", bg="yellow", justify="center", font=("Arial Bold", 10),command=self.realImage)
-        but_realimage.pack(padx=1,side=LEFT)
-        self.controller.buttons["Show"] = but_realimage
-
-        # but_solve = Button(frame2, text="Analisa", bg="yellow", justify="center", font=("Arial Bold", 10),command=self.Solver)
-        # but_solve.pack(padx=1,side=LEFT)
-        # self.controller.buttons["Solve"] = but_solve
-        
-        but_play = Button(frame2, text="Solusi", bg="yellow", justify="center", font=("Arial Bold", 10),command=self.move_solution)
+        but_solve = Button(frame2, text="Analisa", bg="yellow", justify="center", font=("Arial Bold", 10),command=self.Solver)
+        but_solve.pack(padx=1,side=LEFT)
+        self.controller.buttons["Solve"] = but_solve
+        but_play = Button(frame2, text="Solusi", bg="Grey", justify="center", font=("Arial Bold", 10),state=DISABLED,command=self.move_solution)
         but_play.pack(padx=1,side=LEFT)
         self.controller.buttons["Solution"] = but_play
-        
         but_quit = Button(frame2, text="Keluar", bg="orange", justify="center", font=("Arial Bold", 10),command=self.controller.destroy)
         but_quit.pack(padx=1,side=LEFT)
 
+        # make text info box
+        # text_info = Text(frame3,height=10)
+        # text_info.pack(side=BOTTOM)
+        # self.txt_widget = text_info
+        # self.txt_widget.configure(font="Arial 12 bold")
+        # txt2start = ""
+
+        # self.txt_widget.insert(INSERT,txt2start)
+        # pack or grid frames
         frame0.grid(row=0,column=0,pady=10)
         self.frame1.grid(row=1,column=0,pady=10)
         frame2.grid(row=2,column=0,pady=10)
+        # frame3.grid(row=3,column=0)
         self.controller.frames["Board"] = inner_frame
 
     def goToStart(self):
         self.controller.show_frame("StartPage")
-        
-    def realImage(self):
-        top = tk.Toplevel()
-        top.title("Original Image")
-
-        image_path = "ori.png"
-        original_image = Image.open(image_path)
-        original_image = original_image.resize((500, 500), Image.Resampling.LANCZOS)
-        tk_image = ImageTk.PhotoImage(original_image)
-
-        image_label = tk.Label(top, image=tk_image)
-        image_label.image = tk_image
-        image_label.pack()
-
-        close_button = Button(top, text="Close", command=top.destroy)
-        close_button.pack()
 
     def Solver(self):
         self.controller.buttons["shuffle"].config(state=DISABLED,bg="Grey")
         stboard,num_moves,time4soln,positions_look,hname,algo,moves2solve,soln = Solve(self.heuristic_name,self.solving_algo,self.board)
         if len(soln) == 0:
             print("puzzle was not solved")
+            # self.txt_widget.insert(INSERT,"puzzle was not solved\n")
         else:
+            # txt_to_print = "posisi selesai di langkah ke-{} dari alternatif sebanyak {} posisi, menggunakan {} with {} heuristic.\n\
+            #     Klik tombol Solusi untuk melihat hasilnya\n".format(num_moves,positions_look,algo,hname)
+            # self.txt_widget.insert(INSERT,txt_to_print)
             self.solution = moves2solve
-            # self.controller.buttons["Solve"].config(state=DISABLED,bg="Grey")
-            # self.controller.buttons["Solution"].config(state=NORMAL,bg="yellow")
+            self.controller.buttons["Solve"].config(state=DISABLED,bg="Grey")
+            self.controller.buttons["Solution"].config(state=NORMAL,bg="yellow")
 
 if __name__ == "__main__":
     game = Game()
