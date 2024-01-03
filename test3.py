@@ -743,8 +743,8 @@ class Board(Frame):
         frame2 = Frame(inner_frame)
         frame3 = Frame(inner_frame)
         # make the game status bar
-        solve_status = Label(frame0, text="Is Puzzle solvable?")
-        solve_status.pack(side=LEFT)
+        # solve_status = Label(frame0, text="Is Puzzle solvable?")
+        # solve_status.pack(side=LEFT)
         solve_color = Label(frame0)
         if self.isSolvable():
             solve_color["text"] = "Yes"

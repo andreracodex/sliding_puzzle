@@ -648,6 +648,10 @@ class Board(Frame):
 
         intvartmp = self.controller.var.get() + 1
         self.controller.var.set(intvartmp)
+        if self.game_solved == False and self.board == self.goal:
+            self.popupResult()
+        else:
+            pass
 
     def click(self,event):
         txt = event.widget['text']
@@ -705,10 +709,6 @@ class Board(Frame):
         but_realimage.pack(padx=1,side=LEFT)
         self.controller.buttons["Show"] = but_realimage
 
-        # but_solve = Button(frame2, text="Analisa", bg="yellow", justify="center", font=("Arial Bold", 10),command=self.Solver)
-        # but_solve.pack(padx=1,side=LEFT)
-        # self.controller.buttons["Solve"] = but_solve
-        
         but_play = Button(frame2, text="Solusi", bg="yellow", justify="center", font=("Arial Bold", 10),command=self.move_solution)
         but_play.pack(padx=1,side=LEFT)
         self.controller.buttons["Solution"] = but_play
@@ -723,7 +723,17 @@ class Board(Frame):
 
     def goToStart(self):
         self.controller.show_frame("StartPage")
-        
+
+    def popupResult(self):
+        top = Toplevel()
+        top.title("Result")
+        top.geometry("200x200")
+        msg_text = "DONE!\nPuzzle bergeser sebanyak {} kali".format(self.controller.var.get())
+        msg = Message(top, text=msg_text, font=("Arial Bold", 16))
+        msg.pack()
+        button = Button(top, text="Keluar", command=top.destroy)
+        button.pack()
+
     def realImage(self):
         top = tk.Toplevel()
         top.title("Original Image")

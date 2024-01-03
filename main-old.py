@@ -677,7 +677,7 @@ class Board(Frame):
         old_idx = blank_row * self.N + blank_col
         self.board[new_idx], self.board[old_idx] = self.board[old_idx], self.board[new_idx]
         self.blank = (new_blank_row, new_blank_col)
-        
+
         # ubah pergerakan
         intvartmp = self.controller.var.get() + 1
         self.controller.var.set(intvartmp)
